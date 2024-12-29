@@ -1,0 +1,149 @@
+import hashlib
+import mysql.connector
+
+class BankingApplication:
+    def __init__(self):
+        self.conn = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="your_password",
+            database="banking"
+        )
+        self.create_tables()
+
+    def create_tables(self):
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                account_number VARCHAR(20) PRIMARY KEY,
+                name VARCHAR(100),
+                dob DATE,
+                city VARCHAR(100),
+                password VARCHAR(255),
+                balance DECIMAL(15, 2),
+                contact_number VARCHAR(15),
+                email_id VARCHAR(100),
+                address TEXT
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS transactions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                account_number VARCHAR(20),
+                transaction_details TEXT,
+                FOREIGN KEY (account_number) REFERENCES users (account_number)
+            )
+        ''')
+        self.conn.commit()
+
+    def hash_password(self, password):
+        return hashlib.sha256(password.encode()).hexdigest()
+
+    def add_user(self):
+        print("\n--- Add User ---")
+        name = input("Enter Name: ")
+        account_number = input("Enter Account Number: ")
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE account_number = %s", (account_number,))
+        if cursor.fetchone():
+            print("Account number already exists!")
+            return
+        dob = input("Enter Date of Birth (YYYY-MM-DD): ")
+        city = input("Enter City: ")
+        password = self.hash_password(input("Enter Password: "))
+        initial_balance = float(input("Enter Initial Balance: "))
+        contact_number = input("Enter Contact Number: ")
+        email_id = input("Enter Email ID: ")
+        address = input("Enter Address: ")
+
+        cursor.execute('''
+            INSERT INTO users (account_number, name, dob, city, password, balance, contact_number, email_id, address)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ''', (account_number, name, dob, city, password, initial_balance, contact_number, email_id, address))
+        self.conn.commit()
+        print("User added successfully!")
+
+    def show_user_details(self):
+        print("\n--- Show User Details ---")
+        account_number = input("Enter Account Number: ")
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE account_number = %s", (account_number,))
+        user = cursor.fetchone()
+        if user:
+            print("\nUser Details:")
+            print(f"Name: {user[1]}")
+            print(f"Date of Birth: {user[2]}")
+            print(f"City: {user[3]}")
+            print(f"Balance: {user[5]}")
+            print(f"Contact Number: {user[6]}")
+            print(f"Email ID: {user[7]}")
+            print(f"Address: {user[8]}")
+        else:
+            print("Account number not found!")
+
+    def login(self):
+        print("\n--- Login ---")
+        account_number = input("Enter Account Number: ")
+        password = self.hash_password(input("Enter Password: "))
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE account_number = %s AND password = %s", (account_number, password))
+        user = cursor.fetchone()
+        if user:
+            print("Login successful!")
+            self.show_user_and_transactions(account_number)
+        else:
+            print("Invalid account number or password!")
+
+    def show_user_and_transactions(self, account_number):
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE account_number = %s", (account_number,))
+        user = cursor.fetchone()
+        cursor.execute("SELECT transaction_details FROM transactions WHERE account_number = %s", (account_number,))
+        transactions = cursor.fetchall()
+        if user:
+            print("\nUser Details:")
+            print(f"Name: {user[1]}")
+            print(f"Date of Birth: {user[2]}")
+            print(f"City: {user[3]}")
+            print(f"Balance: {user[5]}")
+            print(f"Contact Number: {user[6]}")
+            print(f"Email ID: {user[7]}")
+            print(f"Address: {user[8]}")
+
+            print("\nTransactions:")
+            if transactions:
+                for transaction in transactions:
+                    print(transaction[0])
+            else:
+                print("No transactions found!")
+        else:
+            print("Account number not found!")
+
+    def exit_application(self):
+        print("Exiting application. Goodbye!")
+        self.conn.close()
+        exit()
+
+    def main_menu(self):
+        while True:
+            print("\n--- Banking Application ---")
+            print("1. Add User")
+            print("2. Show User Details")
+            print("3. Login")
+            print("4. Exit")
+            choice = input("Enter your choice: ")
+
+            if choice == '1':
+                self.add_user()
+            elif choice == '2':
+                self.show_user_details()
+            elif choice == '3':
+                self.login()
+            elif choice == '4':
+                self.exit_application()
+            else:
+                print("Invalid choice! Please try again.")
+
+if __name__ == "__main__":
+    app = BankingApplication()
+    app.main_menu()
